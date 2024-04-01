@@ -3,14 +3,19 @@ function Convertfrom-EnPassJson {
     param (
         [ValidateScript({
             try {
-                (Get-Item -path $Path -ErrorAction stop).count -eq 1
+                [Byte]$ItemCount = (Get-Item -path $_ -ErrorAction stop).count
             } #try
             catch {
                 Throw $_
             } #catch
 
+            if ($ItemCount -gt 1) {
+                Throw "Expected 1 item in path, found $ItemCount with Path $_"
+            } #if
+
+            return $True
         })]
-        [ValidateNotNullOrWhiteSpace()]
+        [Parameter(Mandatory = $True)]
         [String]$Path
     )
 
@@ -91,6 +96,7 @@ function Convertfrom-EnPassJson {
                     $ExtraNotes += "`n$($Key): $($UnkownFields[$Key])"
                 } #if
 
+                #* If there's any notes, we add some newlines to our extra "fields", if not we just paste it in
                 if ([String]::IsNullOrWhiteSpace($This.notes)) {
                     $This.notes = $ExtraNotes
                 } #if
@@ -107,7 +113,12 @@ function Convertfrom-EnPassJson {
 
     PROCESS {
 
-        [System.Object]$EnPassItems = ConvertFrom-json -InputObject "$(Get-content -Path $Path -ErrorAction Stop)" -Depth 99 -ErrorAction Stop
+        try {
+            [System.Object]$EnPassItems = ConvertFrom-json -InputObject "$(Get-content -Path $Path -ErrorAction Stop)" -Depth 99 -ErrorAction Stop
+        } #try
+        catch {
+            Throw $_
+        } #catch
 
         Foreach ($EnPassItem in $EnPassItems.Items) {
             $Output.add(([KeePassStructure]::new($EnPassItem)))
